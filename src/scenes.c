@@ -2,6 +2,7 @@
  * Presentation layer: scene_manager hooks and settings submenu wiring.
  * Single TU keeps Flipper build simple and avoids dozens of tiny scene files.
  */
+#include "../version.h"
 #include "include/app_types.h"
 #include "include/clock.h"
 #include "include/db.h"
@@ -9,7 +10,6 @@
 #include "include/fs_compat.h"
 #include "include/stock.h"
 #include "include/ui.h"
-#include "../version.h"
 #include <furi.h>
 #include <furi_hal_random.h>
 #include <gui/canvas.h>

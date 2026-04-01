@@ -40,4 +40,4 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ steps.release.outputs.tag_name }} dist/sub_dup_finder.fap
+        run: gh release upload ${{ steps.release.outputs.tag_name }} dist/nfc_stock_manager.fap
