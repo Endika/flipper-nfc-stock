@@ -1,80 +1,48 @@
-# NFC Stock Manager for Flipper Zero
+# NFC Stock Manager (Flipper Zero)
 
-NFC-based inventory app for Flipper Zero.  
-Scan a tag, load or create an item, update stock, and persist data in a local database file on the SD card.
+Inventory app using NFC tags.
 
-## Current Status
+## What It Does
 
-- Alpha project (`v0.1.0` in `version.h`).
-- Scan-first UX:
-  - Known tag -> details view (UP/DOWN stock, OK to edit).
-  - Unknown tag -> edit view to create the item.
-- Single DB path is configurable in Settings.
+- Scans an NFC tag.
+- If it exists in the database, opens the item.
+- If it does not exist, creates a new item.
+- Lets you edit stock, minimum stock, and location.
+- Stores data in `.bin` and exports to `.csv`.
 
-## Features
+## Quick Usage (App)
 
-- NFC UID lookup in local stock database.
-- Create/update items with:
-  - Name
-  - Quantity
-  - Minimum stock
-  - Location
-- Inventory list with edit/delete.
-- CSV export support.
-- Safe persistence behavior (`upsert` for existing items, no full DB overwrite on single-item save).
+- `Scan tag`: read/create item by UID.
+- `Inventory`: list, edit, or delete items.
+- `Settings > Select warehouse`:
+  - `Switch existing`: switch to an existing `.bin` database.
+  - `New database`: create a new database.
+  - `Rename current`: rename the current database.
+- `Settings > Export CSV`: export the active database.
 
-## Build and Development
+## Quick Build
 
-### Requirements
-
-- `gcc`
-- `make`
-- `clang-format`
-- `cppcheck`
-- Local Flipper firmware checkout for `.fap` builds
-
-### Common Commands
-
-- `make test` - Run host unit tests.
-- `make linter` - Run static analysis (`cppcheck`).
-- `make format` - Format C/H files with `clang-format`.
-- `make prepare` - Symlink project into firmware `applications_user`.
-- `make fap` - Build `.fap` with `fbt`.
-- `make clean` - Remove local host build artifacts.
-
-## Build for Flipper Zero
-
-1. Clone [flipperzero-firmware](https://github.com/flipperdevices/flipperzero-firmware).
-2. Set `FLIPPER_FIRMWARE_PATH` in `Makefile` if needed.
-3. Run:
+Requirements: `gcc`, `make`, and a local Flipper firmware checkout.
 
 ```bash
+make test
+make prepare
 make fap
 ```
 
-The resulting app is built in the firmware output directory.
+If needed, change `FLIPPER_FIRMWARE_PATH` in `Makefile`.
 
-## Project Layout
+## SD Card Data
 
-Layered structure optimized for maintainability and constrained devices:
+- Folder: `/ext/apps_data/nfc_stock_manager`
+- Active DB: `active_db.txt`
+- Default DB: `default.bin`
 
-- `main.c` - Composition root (scene manager + dispatcher wiring).
-- `src/scenes.c` - Scene flow and event handling (single translation unit).
-- `src/ui/ui.c` - Reusable UI setup helpers.
-- `src/domain/stock.c` - Domain rules and stock mutations.
-- `src/persistence/` - DB/file persistence and export.
-- `src/platform/storage_helper.c` - Active DB storage path management.
-- `include/` - Public headers.
-- `tests/test_stock.c` - Host-side unit tests.
-- `docs/ARCHITECTURE.md` - Layer and responsibility overview.
+## Useful Note
 
-## Versioning and Release
+- Firmware builds with `-Werror`, so warnings also break `make fap`.
 
-- `version.h` (`APP_VERSION`) is the canonical app version string used in UI and release automation.
-- `application.fam` (`fap_version`) is Flipper package metadata.
-- Release automation uses `release-please` via GitHub Actions.
-
-## Credits
+## Repo
 
 - Author: Endika
 - Repository: [github.com/endika/flipper-nfc-stock](https://github.com/endika/flipper-nfc-stock)

@@ -9,6 +9,7 @@
 #include "include/export.h"
 #include "include/fs_compat.h"
 #include "include/stock.h"
+#include "include/storage_helper.h"
 #include "include/ui.h"
 #include <furi.h>
 #include <furi_hal_random.h>
@@ -28,6 +29,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <storage/storage.h>
 #include <string.h>
 
 /* ----- Scan ----- */
@@ -270,18 +272,22 @@ static void nfc_stock_edit_enter_cb(void *context, uint32_t index) {
 }
 
 static void nfc_stock_edit_refresh_list(NfcStockApp *app) {
+  static char line_name[48];
+  static char line_stock[48];
+  static char line_min[48];
+  static char line_location[48];
+
   variable_item_list_reset(app->ui->edit_list);
   const StockItem *it = &app->current_item;
-  char line[48];
 
-  snprintf(line, sizeof(line), "Name: %s", it->name);
-  variable_item_list_add(app->ui->edit_list, line, 0, NULL, NULL);
-  snprintf(line, sizeof(line), "Stock: %" PRId32, it->quantity);
-  variable_item_list_add(app->ui->edit_list, line, 0, NULL, NULL);
-  snprintf(line, sizeof(line), "Min stock: %" PRId32, it->min_quantity);
-  variable_item_list_add(app->ui->edit_list, line, 0, NULL, NULL);
-  snprintf(line, sizeof(line), "Location: %s", it->location);
-  variable_item_list_add(app->ui->edit_list, line, 0, NULL, NULL);
+  snprintf(line_name, sizeof(line_name), "Name: %s", it->name);
+  variable_item_list_add(app->ui->edit_list, line_name, 0, NULL, NULL);
+  snprintf(line_stock, sizeof(line_stock), "Stock: %" PRId32, it->quantity);
+  variable_item_list_add(app->ui->edit_list, line_stock, 0, NULL, NULL);
+  snprintf(line_min, sizeof(line_min), "Min stock: %" PRId32, it->min_quantity);
+  variable_item_list_add(app->ui->edit_list, line_min, 0, NULL, NULL);
+  snprintf(line_location, sizeof(line_location), "Location: %s", it->location);
+  variable_item_list_add(app->ui->edit_list, line_location, 0, NULL, NULL);
 
   variable_item_list_set_enter_callback(app->ui->edit_list,
                                         nfc_stock_edit_enter_cb, app);
@@ -346,6 +352,8 @@ static void nfc_stock_inventory_show_empty(NfcStockApp *app) {
 }
 
 static void nfc_stock_inventory_refresh(NfcStockApp *app) {
+  static char row_labels[128][64];
+
   variable_item_list_reset(app->ui->inventory_list);
 
   StockItem *items = NULL;
@@ -360,11 +368,14 @@ static void nfc_stock_inventory_refresh(NfcStockApp *app) {
   }
 
   for (size_t i = 0; i < count; i++) {
-    char buffer[64];
+    if (i >= 128) {
+      break;
+    }
     bool alert = (items[i].quantity <= items[i].min_quantity);
-    snprintf(buffer, sizeof(buffer), "%s (%" PRId32 ")%s", items[i].name,
-             items[i].quantity, alert ? " !" : "");
-    variable_item_list_add(app->ui->inventory_list, buffer, 0, NULL, NULL);
+    snprintf(row_labels[i], sizeof(row_labels[i]), "%s (%" PRId32 ")%s",
+             items[i].name, items[i].quantity, alert ? " !" : "");
+    variable_item_list_add(app->ui->inventory_list, row_labels[i], 0, NULL,
+                           NULL);
   }
   free(items);
 
@@ -415,9 +426,222 @@ typedef enum {
   Settings_Credits,
 } SettingsMenuAction;
 
+typedef enum {
+  SettingsDbActionCreate = 1,
+  SettingsDbActionRename = 2,
+  SettingsDbActionSelect = 3,
+} SettingsDbAction;
+
+static char s_db_name_buf[40];
+static SettingsDbAction s_db_action = SettingsDbActionCreate;
+static char s_db_paths[32][128];
+static char s_db_labels[32][40];
+static size_t s_db_count = 0;
+
+static void nfc_stock_ui_configure_settings_menu(NfcStockUi *ui,
+                                                 NfcStockApp *app);
+
+static void nfc_stock_settings_sanitize_name(char *name) {
+  for (size_t i = 0; name[i] != '\0'; i++) {
+    char c = name[i];
+    bool valid = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                 (c >= '0' && c <= '9') || c == '_' || c == '-';
+    if (!valid) {
+      name[i] = '_';
+    }
+  }
+}
+
+static void nfc_stock_settings_build_db_path(char *out, size_t out_size,
+                                             const char *name) {
+  size_t len = strlen(name);
+  if (len >= 4 && strcmp(name + len - 4, ".bin") == 0) {
+    snprintf(out, out_size, STORAGE_PATH "/%s", name);
+  } else {
+    snprintf(out, out_size, STORAGE_PATH "/%s.bin", name);
+  }
+}
+
+static void nfc_stock_settings_apply_db_name(NfcStockApp *app) {
+  if (s_db_name_buf[0] == '\0') {
+    nfc_stock_ui_configure_settings_menu(app->ui, app);
+    view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewSubmenu);
+    return;
+  }
+
+  nfc_stock_settings_sanitize_name(s_db_name_buf);
+  char new_path[sizeof(app->active_db_path)];
+  nfc_stock_settings_build_db_path(new_path, sizeof(new_path), s_db_name_buf);
+
+  if (s_db_action == SettingsDbActionRename &&
+      strcmp(new_path, app->active_db_path) != 0) {
+    StockItem *items = NULL;
+    size_t count = 0;
+    if (fs_read_all_stock_items(app->active_db_path, &items, &count)) {
+      fs_write_replace(new_path, items, count * sizeof(StockItem));
+      free(items);
+      fs_write_replace(app->active_db_path, "", 0);
+    } else {
+      fs_write_replace(new_path, "", 0);
+    }
+  } else {
+    fs_write_replace(new_path, "", 0);
+  }
+
+  storage_helper_set_active_db(new_path);
+  strncpy(app->active_db_path, new_path, sizeof(app->active_db_path) - 1);
+  app->active_db_path[sizeof(app->active_db_path) - 1] = '\0';
+
+  nfc_stock_ui_configure_settings_menu(app->ui, app);
+  view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewSubmenu);
+}
+
+static void nfc_stock_settings_db_text_done(void *context) {
+  NfcStockApp *app = (NfcStockApp *)context;
+  nfc_stock_settings_apply_db_name(app);
+}
+
+static bool nfc_stock_path_has_bin_suffix(const char *path) {
+  size_t len = strlen(path);
+  return len >= 4 && strcmp(path + len - 4, ".bin") == 0;
+}
+
+static void nfc_stock_db_label_from_path(const char *path, char *out,
+                                         size_t out_size) {
+  const char *slash = strrchr(path, '/');
+  const char *base = slash ? slash + 1 : path;
+  strncpy(out, base, out_size - 1);
+  out[out_size - 1] = '\0';
+  size_t len = strlen(out);
+  if (len >= 4 && strcmp(out + len - 4, ".bin") == 0) {
+    out[len - 4] = '\0';
+  }
+}
+
+static void nfc_stock_settings_select_existing_callback(void *context,
+                                                        uint32_t index) {
+  NfcStockApp *app = (NfcStockApp *)context;
+  if (index >= s_db_count) {
+    return;
+  }
+  storage_helper_set_active_db(s_db_paths[index]);
+  strncpy(app->active_db_path, s_db_paths[index],
+          sizeof(app->active_db_path) - 1);
+  app->active_db_path[sizeof(app->active_db_path) - 1] = '\0';
+
+  nfc_stock_ui_configure_settings_menu(app->ui, app);
+  view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewSubmenu);
+}
+
+static void nfc_stock_ui_open_existing_db_menu(NfcStockApp *app) {
+  s_db_count = 0;
+
+  Storage *storage = furi_record_open(RECORD_STORAGE);
+  File *dir = storage_file_alloc(storage);
+  if (storage_dir_open(dir, STORAGE_PATH)) {
+    FileInfo file_info;
+    char name[96];
+    while (s_db_count < 32 &&
+           storage_dir_read(dir, &file_info, name, sizeof(name))) {
+      if (!nfc_stock_path_has_bin_suffix(name)) {
+        continue;
+      }
+
+      size_t needed = strlen(STORAGE_PATH) + 1 + strlen(name) + 1;
+      if (needed > sizeof(s_db_paths[s_db_count])) {
+        continue;
+      }
+      size_t base_len = strlen(STORAGE_PATH);
+      strncpy(s_db_paths[s_db_count], STORAGE_PATH,
+              sizeof(s_db_paths[s_db_count]) - 1);
+      s_db_paths[s_db_count][sizeof(s_db_paths[s_db_count]) - 1] = '\0';
+      s_db_paths[s_db_count][base_len] = '/';
+      strncpy(&s_db_paths[s_db_count][base_len + 1], name,
+              sizeof(s_db_paths[s_db_count]) - base_len - 2);
+      s_db_paths[s_db_count][needed - 1] = '\0';
+      nfc_stock_db_label_from_path(s_db_paths[s_db_count],
+                                   s_db_labels[s_db_count],
+                                   sizeof(s_db_labels[s_db_count]));
+      s_db_count++;
+    }
+    storage_dir_close(dir);
+  }
+  storage_file_free(dir);
+  furi_record_close(RECORD_STORAGE);
+
+  submenu_reset(app->ui->submenu);
+  if (s_db_count == 0) {
+    widget_reset(app->ui->widget);
+    widget_add_string_element(app->ui->widget, 0, 10, AlignLeft, AlignTop,
+                              FontPrimary, "No .bin databases found");
+    widget_add_string_element(app->ui->widget, 0, 26, AlignLeft, AlignTop,
+                              FontSecondary, "Create one from");
+    widget_add_string_element(app->ui->widget, 0, 38, AlignLeft, AlignTop,
+                              FontSecondary, "Select warehouse");
+    view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewWidget);
+    return;
+  }
+
+  for (size_t i = 0; i < s_db_count; i++) {
+    submenu_add_item(app->ui->submenu, s_db_labels[i], (uint32_t)i,
+                     nfc_stock_settings_select_existing_callback, app);
+  }
+  view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewSubmenu);
+}
+
+static void nfc_stock_settings_db_action_callback(void *context,
+                                                  uint32_t index) {
+  NfcStockApp *app = (NfcStockApp *)context;
+  s_db_action = (SettingsDbAction)index;
+  if (s_db_action == SettingsDbActionSelect) {
+    nfc_stock_ui_open_existing_db_menu(app);
+    return;
+  }
+  memset(s_db_name_buf, 0, sizeof(s_db_name_buf));
+  text_input_reset(app->ui->text_input);
+
+  if (s_db_action == SettingsDbActionRename) {
+    const char *slash = strrchr(app->active_db_path, '/');
+    const char *base = slash ? slash + 1 : app->active_db_path;
+    strncpy(s_db_name_buf, base, sizeof(s_db_name_buf) - 1);
+    size_t len = strlen(s_db_name_buf);
+    if (len >= 4 && strcmp(s_db_name_buf + len - 4, ".bin") == 0) {
+      s_db_name_buf[len - 4] = '\0';
+    }
+    text_input_set_header_text(app->ui->text_input, "Rename DB");
+  } else {
+    strncpy(s_db_name_buf, "warehouse", sizeof(s_db_name_buf) - 1);
+    text_input_set_header_text(app->ui->text_input, "New DB name");
+  }
+
+  text_input_set_result_callback(app->ui->text_input,
+                                 nfc_stock_settings_db_text_done, app,
+                                 s_db_name_buf, sizeof(s_db_name_buf), false);
+  view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewTextInput);
+}
+
+static void nfc_stock_ui_open_select_db_menu(NfcStockApp *app) {
+  submenu_reset(app->ui->submenu);
+  submenu_add_item(app->ui->submenu, "Switch existing", SettingsDbActionSelect,
+                   nfc_stock_settings_db_action_callback, app);
+  submenu_add_item(app->ui->submenu, "New database", SettingsDbActionCreate,
+                   nfc_stock_settings_db_action_callback, app);
+  submenu_add_item(app->ui->submenu, "Rename current", SettingsDbActionRename,
+                   nfc_stock_settings_db_action_callback, app);
+  view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewSubmenu);
+}
+
 static void nfc_stock_ui_export_csv_execute(NfcStockApp *app) {
   char csv_path[sizeof(app->active_db_path) + 8];
-  snprintf(csv_path, sizeof(csv_path), "%s.csv", app->active_db_path);
+  char csv_line_1[32] = {0};
+  char csv_line_2[32] = {0};
+  const char *src_path = app->active_db_path;
+  size_t src_len = strlen(src_path);
+  size_t base_len = src_len;
+  if (src_len >= 4 && strcmp(src_path + src_len - 4, ".bin") == 0) {
+    base_len = src_len - 4;
+  }
+  snprintf(csv_path, sizeof(csv_path), "%.*s.csv", (int)base_len, src_path);
 
   StockItem *items = NULL;
   size_t count = 0;
@@ -431,8 +655,37 @@ static void nfc_stock_ui_export_csv_execute(NfcStockApp *app) {
   widget_reset(app->ui->widget);
   widget_add_string_element(app->ui->widget, 0, 10, AlignLeft, AlignTop,
                             FontPrimary, "Exported to:");
+
+  const char *split_token = "/nfc_stock_";
+  const char *split = strstr(csv_path, split_token);
+  if (split) {
+    size_t first_len = (size_t)(split - csv_path) + strlen("/nfc_stock_");
+    if (first_len > sizeof(csv_line_1) - 1) {
+      first_len = sizeof(csv_line_1) - 1;
+    }
+    strncpy(csv_line_1, csv_path, first_len);
+    csv_line_1[first_len] = '\0';
+    strncpy(csv_line_2, split + strlen("/nfc_stock_"), sizeof(csv_line_2) - 1);
+  } else {
+    const char *slash = strrchr(csv_path, '/');
+    const char *filename = slash ? slash + 1 : csv_path;
+    if (slash) {
+      size_t dir_len = (size_t)(slash - csv_path);
+      if (dir_len > sizeof(csv_line_1) - 1) {
+        dir_len = sizeof(csv_line_1) - 1;
+      }
+      strncpy(csv_line_1, csv_path, dir_len);
+      csv_line_1[dir_len] = '\0';
+    } else {
+      strncpy(csv_line_1, "(current folder)", sizeof(csv_line_1) - 1);
+    }
+    strncpy(csv_line_2, filename, sizeof(csv_line_2) - 1);
+  }
+
   widget_add_string_element(app->ui->widget, 0, 25, AlignLeft, AlignTop,
-                            FontPrimary, csv_path);
+                            FontSecondary, csv_line_1);
+  widget_add_string_element(app->ui->widget, 0, 38, AlignLeft, AlignTop,
+                            FontSecondary, csv_line_2);
   view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewWidget);
 }
 
@@ -444,6 +697,7 @@ static void nfc_stock_ui_settings_callback(void *context, uint32_t index) {
     nfc_stock_ui_export_csv_execute(app);
     break;
   case Settings_SelectDB:
+    nfc_stock_ui_open_select_db_menu(app);
     break;
   case Settings_ResetStock: {
     StockItem *items = NULL;
@@ -463,15 +717,13 @@ static void nfc_stock_ui_settings_callback(void *context, uint32_t index) {
     break;
   case Settings_Credits: {
     char version_line[48];
-    snprintf(version_line, sizeof(version_line), "v%s", APP_VERSION);
+    snprintf(version_line, sizeof(version_line), "by Endika v%s", APP_VERSION);
     widget_reset(app->ui->widget);
     widget_add_string_element(app->ui->widget, 0, 5, AlignLeft, AlignTop,
                               FontPrimary, "NFC Stock Manager");
     widget_add_string_element(app->ui->widget, 0, 20, AlignLeft, AlignTop,
                               FontSecondary, version_line);
     widget_add_string_element(app->ui->widget, 0, 35, AlignLeft, AlignTop,
-                              FontSecondary, "by Endika");
-    widget_add_string_element(app->ui->widget, 0, 50, AlignLeft, AlignTop,
                               FontSecondary, "https://github.com/endika");
     widget_add_string_element(app->ui->widget, 0, 50, AlignLeft, AlignTop,
                               FontSecondary, "/flipper-nfc-stock");
@@ -482,6 +734,11 @@ static void nfc_stock_ui_settings_callback(void *context, uint32_t index) {
 }
 
 void nfc_stock_ui_configure_settings(NfcStockUi *ui, NfcStockApp *app) {
+  nfc_stock_ui_configure_settings_menu(ui, app);
+}
+
+static void nfc_stock_ui_configure_settings_menu(NfcStockUi *ui,
+                                                 NfcStockApp *app) {
   submenu_reset(ui->submenu);
   submenu_add_item(ui->submenu, "Select warehouse", Settings_SelectDB,
                    nfc_stock_ui_settings_callback, app);

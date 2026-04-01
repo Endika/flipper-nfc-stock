@@ -136,10 +136,18 @@ int32_t nfc_stock_app(void *p) {
 
   view_dispatcher_run(app->view_dispatcher);
 
-  furi_record_close(RECORD_GUI);
-  view_dispatcher_free(app->view_dispatcher);
-  nfc_stock_ui_free(app->ui);
+  /* Remove registered views before tearing down UI modules. */
+  view_dispatcher_remove_view(app->view_dispatcher, NfcStockViewSubmenu);
+  view_dispatcher_remove_view(app->view_dispatcher, NfcStockViewWidget);
+  view_dispatcher_remove_view(app->view_dispatcher, NfcStockViewTextInput);
+  view_dispatcher_remove_view(app->view_dispatcher, NfcStockViewInventory);
+  view_dispatcher_remove_view(app->view_dispatcher, NfcStockViewEdit);
+
+  /* Keep UI alive while scene_manager runs final scene on_exit handlers. */
   scene_manager_free(app->scene_manager);
+  nfc_stock_ui_free(app->ui);
+  view_dispatcher_free(app->view_dispatcher);
+  furi_record_close(RECORD_GUI);
   free(app);
 
   return 0;

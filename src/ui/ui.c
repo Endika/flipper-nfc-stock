@@ -64,20 +64,43 @@ void nfc_stock_ui_apply_main_menu(NfcStockUi *ui, SceneManager *scene_manager,
 
 void nfc_stock_ui_show_item(NfcStockUi *ui, const StockItem *item) {
   char buffer[128];
+  char uid_hex[32] = {0};
   widget_reset(ui->widget);
 
+  const char *name = (item->name[0] != '\0') ? item->name : "(empty)";
+  const char *location =
+      (item->location[0] != '\0') ? item->location : "(empty)";
+
+  size_t pos = 0;
+  for (uint8_t i = 0; i < item->uid_len && pos + 2 < sizeof(uid_hex); i++) {
+    int written =
+        snprintf(uid_hex + pos, sizeof(uid_hex) - pos, "%02X", item->uid[i]);
+    if (written <= 0) {
+      break;
+    }
+    pos += (size_t)written;
+  }
+  if (pos == 0) {
+    strncpy(uid_hex, "--", sizeof(uid_hex) - 1);
+  }
+
+  snprintf(buffer, sizeof(buffer), "Name: %s", name);
   widget_add_string_element(ui->widget, 0, 0, AlignLeft, AlignTop, FontPrimary,
-                            "Up:+1 Down:-1 OK:Edit Back:Save");
-
-  snprintf(buffer, sizeof(buffer), "Name: %s", item->name);
-  widget_add_string_element(ui->widget, 0, 15, AlignLeft, AlignTop, FontPrimary,
                             buffer);
 
-  snprintf(buffer, sizeof(buffer), "Stock: %" PRId32, item->quantity);
-  widget_add_string_element(ui->widget, 0, 30, AlignLeft, AlignTop, FontPrimary,
+  snprintf(buffer, sizeof(buffer), "Stock: %" PRId32 "  Min: %" PRId32,
+           item->quantity, item->min_quantity);
+  widget_add_string_element(ui->widget, 0, 14, AlignLeft, AlignTop, FontPrimary,
                             buffer);
 
-  snprintf(buffer, sizeof(buffer), "Location: %s", item->location);
-  widget_add_string_element(ui->widget, 0, 45, AlignLeft, AlignTop, FontPrimary,
+  snprintf(buffer, sizeof(buffer), "Location: %s", location);
+  widget_add_string_element(ui->widget, 0, 28, AlignLeft, AlignTop, FontPrimary,
                             buffer);
+
+  snprintf(buffer, sizeof(buffer), "UID: %s", uid_hex);
+  widget_add_string_element(ui->widget, 0, 42, AlignLeft, AlignTop, FontPrimary,
+                            buffer);
+
+  widget_add_string_element(ui->widget, 0, 55, AlignLeft, AlignTop,
+                            FontSecondary, "Up/Down +/-  OK:Edit  Back:Save");
 }

@@ -1,4 +1,5 @@
 #include "include/db.h"
+#include "include/fs_compat.h"
 #include "include/stock.h"
 #include "include/storage_helper.h"
 #include <assert.h>
@@ -120,6 +121,46 @@ void test_db_upsert(void) {
   unlink(path);
 }
 
+void test_read_all_empty_db(void) {
+  const char *path = "test_empty.bin";
+  unlink(path);
+
+  /* Create an empty DB file and ensure it is handled safely. */
+  FILE *f = fopen(path, "wb");
+  assert(f != NULL);
+  fclose(f);
+
+  StockItem *items = (StockItem *)0x1;
+  size_t count = 123;
+  bool ok = fs_read_all_stock_items(path, &items, &count);
+  assert(ok == true);
+  assert(items == NULL);
+  assert(count == 0);
+
+  printf("test_read_all_empty_db: PASSED\n");
+  unlink(path);
+}
+
+void test_read_all_rejects_corrupt_size(void) {
+  const char *path = "test_corrupt.bin";
+  unlink(path);
+
+  /* Write a non-multiple of StockItem to simulate file corruption. */
+  FILE *f = fopen(path, "wb");
+  assert(f != NULL);
+  uint8_t bad[3] = {0xAA, 0xBB, 0xCC};
+  fwrite(bad, sizeof(bad), 1, f);
+  fclose(f);
+
+  StockItem *items = NULL;
+  size_t count = 0;
+  bool ok = fs_read_all_stock_items(path, &items, &count);
+  assert(ok == false);
+
+  printf("test_read_all_rejects_corrupt_size: PASSED\n");
+  unlink(path);
+}
+
 int main() {
   printf("Running all tests...\n");
   test_init();
@@ -129,6 +170,8 @@ int main() {
   test_storage_logic();
   test_db_lookup();
   test_db_upsert();
+  test_read_all_empty_db();
+  test_read_all_rejects_corrupt_size();
   printf("All tests PASSED!\n");
   return 0;
 }

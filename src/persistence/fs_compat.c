@@ -117,6 +117,12 @@ bool fs_read_all_stock_items(const char *path, StockItem **out_items,
     return false;
   }
   size_t n = (size_t)sz / sizeof(StockItem);
+  if (n == 0) {
+    fclose(f);
+    *out_items = NULL;
+    *out_count = 0;
+    return true;
+  }
   StockItem *buf = malloc((size_t)sz);
   if (!buf) {
     fclose(f);
@@ -285,6 +291,12 @@ bool fs_read_all_stock_items(const char *path, StockItem **out_items,
     return false;
   }
   size_t n = (size_t)(sz / sizeof(StockItem));
+  if (n == 0) {
+    close_file(file, storage);
+    *out_items = NULL;
+    *out_count = 0;
+    return true;
+  }
   StockItem *buf = malloc((size_t)sz);
   if (!buf) {
     close_file(file, storage);
