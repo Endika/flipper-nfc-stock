@@ -92,8 +92,14 @@ void nfc_stock_scene_scan_on_enter(void *context) {
   nfc_poller_start(g_scan.poller, nfc_stock_scene_scan_callback, &g_scan);
 
   widget_reset(app->ui->widget);
-  widget_add_string_element(app->ui->widget, 0, 10, AlignLeft, AlignTop,
-                            FontPrimary, "Scanning...");
+  widget_add_string_element(app->ui->widget, 64, 6, AlignCenter, AlignTop,
+                            FontPrimary, "NFC Scanner");
+  widget_add_string_element(app->ui->widget, 64, 21, AlignCenter, AlignTop,
+                            FontSecondary, "[    NFC TAG    ]");
+  widget_add_string_element(app->ui->widget, 64, 35, AlignCenter, AlignTop,
+                            FontPrimary, "Bring tag near back");
+  widget_add_string_element(app->ui->widget, 64, 49, AlignCenter, AlignTop,
+                            FontSecondary, "Back: cancel");
   view_dispatcher_switch_to_view(app->view_dispatcher, NfcStockViewWidget);
 }
 
