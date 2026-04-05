@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/Endika/flipper-nfc-stock/compare/v0.1.3...v0.1.4) (2026-04-05)
+
+
+### Bug Fixes
+
+* update scanner scene ([6537228](https://github.com/Endika/flipper-nfc-stock/commit/6537228ebdb659a527644ffa9ac0d0b05768ae03))
+
 ## [0.1.3](https://github.com/Endika/flipper-nfc-stock/compare/v0.1.2...v0.1.3) (2026-04-01)
 
 
