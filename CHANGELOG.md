@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/Endika/flipper-nfc-stock/compare/v0.1.4...v0.1.5) (2026-05-09)
+
+
+### Bug Fixes
+
+* **app:** resolve fam errors ([fbc610e](https://github.com/Endika/flipper-nfc-stock/commit/fbc610eafead68f831dc2144ef154d9a203e5058))
+
 ## [0.1.4](https://github.com/Endika/flipper-nfc-stock/compare/v0.1.3...v0.1.4) (2026-04-05)
 
 
