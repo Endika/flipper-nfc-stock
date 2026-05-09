@@ -2,6 +2,12 @@
 
 Inventory app using NFC tags.
 
+## Screenshots
+
+| Main menu | Inventory | Item details |
+| :---: | :---: | :---: |
+| ![Main menu](assets/menu.png) | ![Inventory](assets/items.png) | ![Item details](assets/details.png) |
+
 ## What It Does
 
 - Scans an NFC tag.
