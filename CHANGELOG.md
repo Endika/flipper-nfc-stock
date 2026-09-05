@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/Endika/flipper-nfc-stock/compare/v0.1.5...v0.1.6) (2026-09-05)
+
+
+### Bug Fixes
+
+* guard the app allocation so the null cannot flow ([6b1a943](https://github.com/Endika/flipper-nfc-stock/commit/6b1a943763e1bcca48f180a63ae8ac526c440339))
+
 ## [0.1.5](https://github.com/Endika/flipper-nfc-stock/compare/v0.1.4...v0.1.5) (2026-05-09)
 
 
