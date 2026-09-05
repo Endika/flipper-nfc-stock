@@ -38,7 +38,7 @@ format:
 	clang-format -i $(FORMAT_FILES)
 
 linter:
-	cppcheck --enable=all --error-exitcode=1 -I. \
+	cppcheck --enable=all --check-level=exhaustive --error-exitcode=1 -I. \
 		--suppress=missingIncludeSystem \
 		--suppress=unusedFunction:main.c \
 		--suppress=constParameterCallback:src/scenes.c \
