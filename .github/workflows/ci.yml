@@ -21,3 +21,7 @@ jobs:
         run: git ls-files '*.c' '*.h' | xargs clang-format --dry-run --Werror
       - name: Run tests
         run: make test
+      - name: Build FAP
+        uses: flipperdevices/flipperzero-ufbt-action@v0.1.4
+        with:
+          sdk-channel: release
