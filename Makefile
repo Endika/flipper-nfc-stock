@@ -5,7 +5,7 @@ FLIPPER_FIRMWARE_PATH ?= /home/<YOUR_PATH>/flipperzero-firmware
 PWD = $(shell pwd)
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -I. -DHOST_BUILD
+CFLAGS = -Wall -Wextra -Werror -std=c11 -I. -DHOST_BUILD
 
 SRC_DOMAIN = src/domain/stock.c
 SRC_PERSIST = src/persistence/db.c src/persistence/fs_compat.c \
@@ -38,7 +38,7 @@ format:
 	clang-format -i $(FORMAT_FILES)
 
 linter:
-	cppcheck --enable=all -I. \
+	cppcheck --enable=all --error-exitcode=1 -I. \
 		--suppress=missingIncludeSystem \
 		--suppress=unusedFunction:main.c \
 		--suppress=constParameterCallback:src/scenes.c \
