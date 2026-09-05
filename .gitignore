@@ -4,3 +4,5 @@ test_logic
 .vscode/
 build/
 *.DS_Store
+dist/
+.ufbt/
