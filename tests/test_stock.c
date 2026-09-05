@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-void test_init() {
+static void test_init() {
   StockItem item;
   bool success = stock_item_init(&item, "Tornillo", 100, 10, "Estante A");
   assert(success == true);
@@ -18,7 +18,7 @@ void test_init() {
   printf("test_init: PASSED\n");
 }
 
-void test_update_quantity() {
+static void test_update_quantity() {
   StockItem item;
   stock_item_init(&item, "Tuerca", 50, 5, "Estante B");
 
@@ -31,7 +31,7 @@ void test_update_quantity() {
   printf("test_update_quantity: PASSED\n");
 }
 
-void test_move() {
+static void test_move() {
   StockItem item;
   stock_item_init(&item, "Arandela", 200, 20, "Caja 1");
 
@@ -40,7 +40,7 @@ void test_move() {
   printf("test_move: PASSED\n");
 }
 
-void test_persistence() {
+static void test_persistence() {
   StockItem original;
   StockItem loaded;
   const char *path = "test_item.bin";
@@ -61,7 +61,7 @@ void test_persistence() {
   unlink(path);
 }
 
-void test_storage_logic() {
+static void test_storage_logic() {
   char buffer[128];
   const char *test_path = "/ext/apps_data/nfc_stock_manager/test_db.bin";
 
@@ -74,7 +74,7 @@ void test_storage_logic() {
   printf("test_storage_logic: PASSED\n");
 }
 
-void test_db_lookup() {
+static void test_db_lookup() {
   const char *path = "test_db.bin";
   StockItem item1, found;
   stock_item_init(&item1, "Tornillo", 10, 1, "A1");
@@ -82,6 +82,7 @@ void test_db_lookup() {
   item1.uid_len = 3;
 
   FILE *f = fopen(path, "wb");
+  assert(f != NULL);
   fwrite(&item1, sizeof(StockItem), 1, f);
   fclose(f);
 
@@ -93,7 +94,7 @@ void test_db_lookup() {
   unlink(path);
 }
 
-void test_db_upsert(void) {
+static void test_db_upsert(void) {
   const char *path = "test_upsert.bin";
   unlink(path);
 
@@ -121,7 +122,7 @@ void test_db_upsert(void) {
   unlink(path);
 }
 
-void test_read_all_empty_db(void) {
+static void test_read_all_empty_db(void) {
   const char *path = "test_empty.bin";
   unlink(path);
 
@@ -141,7 +142,7 @@ void test_read_all_empty_db(void) {
   unlink(path);
 }
 
-void test_read_all_rejects_corrupt_size(void) {
+static void test_read_all_rejects_corrupt_size(void) {
   const char *path = "test_corrupt.bin";
   unlink(path);
 
