@@ -1,5 +1,7 @@
 *.o
 test_logic
+test_store_status
+test_stock_recovery
 *.fap
 .vscode/
 build/

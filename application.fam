@@ -6,6 +6,8 @@ App(
         "main.c",
         "src/scenes.c",
         "src/domain/stock.c",
+        "src/domain/store_status.c",
+        "src/domain/stock_recovery.c",
         "src/persistence/stock_file.c",
         "src/persistence/db.c",
         "src/persistence/fs_compat.c",
