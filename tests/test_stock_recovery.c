@@ -599,7 +599,7 @@ static void test_promote_failure_blocks_without_deleting_tmp(void) {
   printf("test_promote_failure_blocks_without_deleting_tmp: PASSED\n");
 }
 
-/* The exact sequence flagged in review: an earlier save's rename fails right
+/* An earlier save's rename fails right
  * after removing the destination (main goes missing, .tmp keeps the full merged
  * content); the *next* save recovers/promotes that .tmp normally, then its own
  * new write fails. The already-promoted data must survive that second failure
@@ -1077,7 +1077,7 @@ static void test_promote_crash_after_copy_blocks_and_preserves_b(void) {
   printf("test_promote_crash_after_copy_blocks_and_preserves_b: PASSED\n");
 }
 
-/* T11: the .tmp stat itself fails -- block without touching either file. */
+/* The .tmp stat itself fails -- block without touching either file. */
 static void test_tmp_stat_error_blocks_and_preserves_b(void) {
   FakePort fp;
   fake_port_init(&fp);
@@ -1102,7 +1102,7 @@ static void test_tmp_stat_error_blocks_and_preserves_b(void) {
   printf("test_tmp_stat_error_blocks_and_preserves_b: PASSED\n");
 }
 
-/* T12: .tmp stat is fine but reading its raw bytes fails (I/O error or
+/* The .tmp stat is fine but reading its raw bytes fails (I/O error or
  * malloc) -- block without touching either file. */
 static void test_tmp_read_raw_failure_blocks_and_preserves_b(void) {
   FakePort fp;
