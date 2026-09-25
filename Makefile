@@ -12,7 +12,10 @@ SRC_PERSIST = src/persistence/db.c src/persistence/fs_compat.c \
 	src/persistence/stock_file.c
 SRC_PLATFORM = src/platform/storage_helper.c
 
-OBJS = stock.o stock_file.o db.o fs_compat.o storage_helper.o test_stock.o
+OBJS = stock.o stock_file.o db.o fs_compat.o storage_helper.o store_status.o \
+	stock_recovery.o test_stock.o
+STORE_STATUS_OBJS = store_status.o test_store_status.o
+STOCK_RECOVERY_OBJS = store_status.o stock_recovery.o test_stock_recovery.o
 
 .PHONY: all help test prepare fap clean clean_firmware format linter
 
@@ -38,15 +41,19 @@ format:
 	clang-format -i $(FORMAT_FILES)
 
 linter:
-	cppcheck --enable=all --check-level=exhaustive --error-exitcode=1 -I. \
+	cppcheck --enable=all --check-level=exhaustive --error-exitcode=1 --inline-suppr -I. \
 		--suppress=missingIncludeSystem \
 		--suppress=unusedFunction:main.c \
 		--suppress=constParameterCallback:src/scenes.c \
 		.
 
-test: $(OBJS)
+test: $(OBJS) $(STORE_STATUS_OBJS) $(STOCK_RECOVERY_OBJS)
 	$(CC) $(CFLAGS) -o test_logic $(OBJS)
 	./test_logic
+	$(CC) $(CFLAGS) -o test_store_status $(STORE_STATUS_OBJS)
+	./test_store_status
+	$(CC) $(CFLAGS) -o test_stock_recovery $(STOCK_RECOVERY_OBJS)
+	./test_stock_recovery
 
 stock.o: $(SRC_DOMAIN) include/stock.h include/clock.h
 	$(CC) $(CFLAGS) -c $(SRC_DOMAIN) -o stock.o
@@ -54,19 +61,34 @@ stock.o: $(SRC_DOMAIN) include/stock.h include/clock.h
 stock_file.o: src/persistence/stock_file.c include/stock.h include/fs_compat.h
 	$(CC) $(CFLAGS) -c src/persistence/stock_file.c -o stock_file.o
 
-db.o: src/persistence/db.c include/db.h include/fs_compat.h include/stock.h
+db.o: src/persistence/db.c include/db.h include/fs_compat.h include/stock.h \
+	include/stock_recovery.h include/storage_port.h include/store_status.h
 	$(CC) $(CFLAGS) -c src/persistence/db.c -o db.o
 
 fs_compat.o: src/persistence/fs_compat.c include/fs_compat.h include/stock.h \
-	include/clock.h
+	include/clock.h include/storage_port.h include/store_status.h
 	$(CC) $(CFLAGS) -c src/persistence/fs_compat.c -o fs_compat.o
 
 storage_helper.o: $(SRC_PLATFORM) include/storage_helper.h
 	$(CC) $(CFLAGS) -c $(SRC_PLATFORM) -o storage_helper.o
 
+store_status.o: src/domain/store_status.c include/store_status.h
+	$(CC) $(CFLAGS) -c src/domain/store_status.c -o store_status.o
+
+stock_recovery.o: src/domain/stock_recovery.c include/stock_recovery.h \
+	include/storage_port.h include/store_status.h include/stock.h
+	$(CC) $(CFLAGS) -c src/domain/stock_recovery.c -o stock_recovery.o
+
 test_stock.o: tests/test_stock.c include/stock.h include/storage_helper.h \
 	include/db.h
 	$(CC) $(CFLAGS) -c tests/test_stock.c -o test_stock.o
+
+test_store_status.o: tests/test_store_status.c include/store_status.h
+	$(CC) $(CFLAGS) -c tests/test_store_status.c -o test_store_status.o
+
+test_stock_recovery.o: tests/test_stock_recovery.c include/stock_recovery.h \
+	include/storage_port.h include/store_status.h include/stock.h
+	$(CC) $(CFLAGS) -c tests/test_stock_recovery.c -o test_stock_recovery.o
 
 prepare:
 	@if [ -d "$(FLIPPER_FIRMWARE_PATH)" ]; then \
@@ -88,4 +110,4 @@ fap: prepare clean_firmware clean
 	fi
 
 clean:
-	rm -f *.o test_logic
+	rm -f *.o test_logic test_store_status test_stock_recovery
