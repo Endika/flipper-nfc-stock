@@ -7,4 +7,5 @@ test_stock_recovery
 build/
 *.DS_Store
 dist/
+local.mk
 .ufbt/
